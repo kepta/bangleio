@@ -4,14 +4,14 @@ import App from './app';
 import 'whatwg-fetch';
 import firebase from 'firebase';
 
-var config = {
-    apiKey: "AIzaSyC__3F3crIHSstH4c8UQwJV0YRiWg_WbPI",
-    authDomain: "bangle-d53bd.firebaseapp.com",
-    databaseURL: "https://bangle-d53bd.firebaseio.com",
-    storageBucket: "bangle-d53bd.appspot.com",
+const config = {
+  apiKey: 'AIzaSyC__3F3crIHSstH4c8UQwJV0YRiWg_WbPI',
+  authDomain: 'bangle-d53bd.firebaseapp.com',
+  databaseURL: 'https://bangle-d53bd.firebaseio.com',
+  storageBucket: 'bangle-d53bd.appspot.com',
 };
 
 firebase.initializeApp(config);
 const database = firebase.database();
 
-render.render(<App database={database}/>, document.getElementById('app'));
+render.render(<App database={database} />, document.getElementById('app'));

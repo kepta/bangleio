@@ -1,40 +1,52 @@
 import React from 'react';
 import Editor from './Editor';
-import { EditorState, convertToRaw, convertFromRaw } from 'draft-js';
+import { EditorState, convertFromRaw } from 'draft-js';
+import { getCurrentPage } from './network/getData';
+import { setCurrentPageThrottled } from './network/setData';
+// import firebase from 'firebase';
 
-// const Database = database();
 let pn = window.location.pathname;
 if (pn === '/') {
   pn = 'root';
 } else {
   pn = pn.slice(1);
 }
+
+
 export default class App extends React.Component {
   static propTypes = {
     database: React.PropTypes.object.isRequired,
   }
   state = {
     editorState: EditorState.createEmpty(),
+    timeStamp: Date.now(),
   }
   componentDidMount() {
-    console.log(this.props);
-    this.props.database.ref(`data/${pn}`).on('child_added', (snapshot) => {
-      this.updateEditor(snapshot.val());
-    });
+    // this.refs.editor.focus();
+    getCurrentPage(pn)
+      .then(this.updateEditor);
+    this.pollServer();
   }
   onEditorChange = (editorState) => {
     this.writeUserData(editorState);
     this.setState({ editorState });
   };
-  writeUserData = (editorState) => {
-    this.props.database.ref(`data/${pn}`).push({
-      editorState: JSON.stringify(convertToRaw(editorState.getCurrentContent())),
-    });
+
+  lastSent = Date.now();
+
+  pollServer = () => {
+
+  }
+  focus = () => this.refs.editor.focus();
+
+  writeUserData = () => {
+    setCurrentPageThrottled(pn, this.state.editorState.getCurrentContent(), this.state.timeStamp);
   }
   updateEditor = (content) => {
-    if (content.editorState) {
+    if (content && content.editorState) {
       this.setState({
         editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
+        timeStamp: Date.now(),
       });
     }
   }
@@ -44,9 +56,12 @@ export default class App extends React.Component {
         <h1>
           Bangle.io
         </h1>
-        {
-          this.state.editorState ? <Editor onEditorChange={this.onEditorChange} editorState={this.state.editorState} /> : null
-        }
+            <Editor
+              onEditorChange={this.onEditorChange}
+              editorState={this.state.editorState}
+              placeholder="Enter some text..."
+              ref="editor"
+            />
       </div>
     );
   }
