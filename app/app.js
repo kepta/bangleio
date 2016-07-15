@@ -12,6 +12,7 @@ if (pn === '/') {
   pn = pn.slice(1);
 }
 
+const POLL_INTERVAL = 600;
 
 export default class App extends React.Component {
   static propTypes = {
@@ -29,15 +30,18 @@ export default class App extends React.Component {
   }
   onEditorChange = (editorState) => {
     this.writeUserData(editorState);
-    this.setState({ editorState });
+    this.setState({ editorState, timeStamp: Date.now() });
   };
 
-  lastSent = Date.now();
-
   pollServer = () => {
-
+    // CHECK: snapshot should have editorState and timeStamp
+    this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
+      const content = snapshot.val();
+      if (content.timeStamp > this.state.timeStamp) {
+        this.updateEditor(content);
+      }
+    });
   }
-  focus = () => this.refs.editor.focus();
 
   writeUserData = () => {
     setCurrentPageThrottled(pn, this.state.editorState.getCurrentContent(), this.state.timeStamp);
@@ -46,7 +50,7 @@ export default class App extends React.Component {
     if (content && content.editorState) {
       this.setState({
         editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
-        timeStamp: Date.now(),
+        timeStamp: content.timeStamp,
       });
     }
   }
@@ -56,12 +60,12 @@ export default class App extends React.Component {
         <h1>
           Bangle.io
         </h1>
-            <Editor
-              onEditorChange={this.onEditorChange}
-              editorState={this.state.editorState}
-              placeholder="Enter some text..."
-              ref="editor"
-            />
+        <Editor
+          onEditorChange={this.onEditorChange}
+          editorState={this.state.editorState}
+          placeholder="Enter some text..."
+          ref="editor"
+        />
       </div>
     );
   }
