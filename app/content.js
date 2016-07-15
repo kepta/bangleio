@@ -27,8 +27,14 @@ export default class Content extends React.Component {
     this.pollServer();
   }
   onEditorChange = (editorState) => {
-    this.writeUserData(editorState);
-    this.setState({ editorState, timeStamp: Date.now() });
+    // console.debug('onEditorChange');
+    const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
+    const date = Date.now();
+    if (didContentChange) {
+      this.writeUserData(editorState, date);
+    }
+    // console.log(didContentChange, Date.now());
+    this.setState({ editorState, timeStamp: didContentChange ? date : this.state.timeStamp });
   };
 
   lastSent = Date.now();
@@ -37,7 +43,7 @@ export default class Content extends React.Component {
     // CHECK: snapshot should have editorState and timeStamp
     this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
       const content = snapshot.val();
-      console.log('"crash"');
+      console.log('"fetched"', content.timeStamp, content.timeStamp === this.state.timeStamp);
       if (content.timeStamp > this.state.timeStamp) {
         this.updateEditor(content);
       }
@@ -46,11 +52,12 @@ export default class Content extends React.Component {
 
   focus = () => this.refs.editor.focus();
 
-  writeUserData = () => {
-    setCurrentPageThrottled(pn, this.state.editorState.getCurrentContent(), this.state.timeStamp);
+  writeUserData = (editorState, date) => {
+    setCurrentPageThrottled(pn, editorState.getCurrentContent(), date);
   }
   updateEditor = (content) => {
     if (content && content.editorState) {
+      // console.debug("updagteEditor", content.timeStamp);
       this.setState({
         editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
         timeStamp: content.timeStamp,
