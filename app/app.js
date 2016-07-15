@@ -1,6 +1,6 @@
 import React from 'react';
-import Content from './content';
-import History from './history';
+import Content from './Content';
+import History from './History';
 
 export default class App extends React.Component {
   static propTypes = {
