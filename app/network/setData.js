@@ -27,4 +27,12 @@ export function setCurrentPage(path, currentContent, timeStamp) {
   });
 }
 
+export function updateHistory(pn, currentContent, timeStamp, database) {
+  console.log('History update');
+  database.ref(`data/${pn}`).child('history').push({
+    editorState: JSON.stringify(convertToRaw(currentContent)),
+    timeStamp,
+  });
+}
+
 export const setCurrentPageThrottled = debounce(setCurrentPage, THRESHOLD, false);

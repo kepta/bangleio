@@ -13,7 +13,7 @@
   <% if (htmlWebpackPlugin.options.mobile) { %>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <% } %>
-
+  
   <% for (var css in htmlWebpackPlugin.files.css) { %>
   <link href="<%= htmlWebpackPlugin.files.css[css] %>" rel="stylesheet">
   <% } %>
@@ -22,6 +22,7 @@
   <base href="<%= htmlWebpackPlugin.options.baseHref %>" />
   <% } %>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
 </head>
 <body>
 <div id="map"></div>

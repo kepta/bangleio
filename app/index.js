@@ -1,6 +1,7 @@
 import React from 'react';
 import render from 'react-dom';
 import App from './app';
+import './app.css';
 import 'whatwg-fetch';
 import firebase from 'firebase';
 

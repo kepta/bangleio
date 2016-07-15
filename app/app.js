@@ -1,6 +1,6 @@
 import React from 'react';
-import Content from './Content';
-import History from './History';
+import Content from './content';
+
 
 export default class App extends React.Component {
   static propTypes = {
@@ -13,11 +13,8 @@ export default class App extends React.Component {
         <h4> Your custom data storage and modification arena </h4>
         <br />
         <div className="row">
-          <div className="col-md-8">
+          <div>
             <Content database={this.props.database} />
-          </div>
-          <div className="col-md-4">
-            <History database={this.props.database} />
           </div>
         </div>
       </div>

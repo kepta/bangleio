@@ -5,7 +5,6 @@ export function getCurrentPage(page) {
           .then((resp) => resp.json());
 }
 
-export function getHistoryByPage(page) {
-  return fetch(`${FIREBASE_URL}/history/${page}/current.json`)
-          .then((resp) => resp.json());
+export function getHistoryByPage(page, database) {
+  return fetch(`${FIREBASE_URL}/data/${page}/history.json`).then((resp) => resp.json());
 }
