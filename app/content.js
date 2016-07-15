@@ -28,14 +28,22 @@ export default class Content extends React.Component {
   }
   onEditorChange = (editorState) => {
     this.writeUserData(editorState);
-    this.setState({ editorState });
+    this.setState({ editorState, timeStamp: Date.now() });
   };
 
   lastSent = Date.now();
 
   pollServer = () => {
-
+    // CHECK: snapshot should have editorState and timeStamp
+    this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
+      const content = snapshot.val();
+      console.log('"crash"');
+      if (content.timeStamp > this.state.timeStamp) {
+        this.updateEditor(content);
+      }
+    });
   }
+
   focus = () => this.refs.editor.focus();
 
   writeUserData = () => {
@@ -45,7 +53,7 @@ export default class Content extends React.Component {
     if (content && content.editorState) {
       this.setState({
         editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
-        timeStamp: Date.now(),
+        timeStamp: content.timeStamp,
       });
     }
   }

@@ -1,6 +1,6 @@
 import { FIREBASE_URL } from '../const';
 import { convertToRaw } from 'draft-js';
-const THRESHOLD = 500;
+const THRESHOLD = 1000;
 
 function debounce(func, wait, immediate) {
   let timeout;
@@ -17,7 +17,7 @@ function debounce(func, wait, immediate) {
 }
 
 export function setCurrentPage(path, currentContent, timeStamp) {
-  console.log("crash", timeStamp);
+  console.log("sending", timeStamp);
   fetch(`${FIREBASE_URL}/data/${path}/current.json`, {
     method: 'put',
     body: JSON.stringify({
