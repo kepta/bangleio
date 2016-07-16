@@ -1,6 +1,6 @@
 import React from 'react';
 import Editor from './Editor';
-import { EditorState, convertFromRaw } from 'draft-js';
+import { EditorState, convertFromRaw, SelectionState } from 'draft-js';
 import { getCurrentPage } from './network/getData';
 import { setCurrentPageThrottled } from './network/setData';
 
@@ -9,6 +9,10 @@ if (pn === '/') {
   pn = 'root';
 } else {
   pn = pn.slice(1);
+}
+
+function printData(contentState, key) {
+  console.log(key, !!contentState.getBlockForKey(key), contentState.getBlockForKey(key) && contentState.getBlockForKey(key).getText());
 }
 
 const INTERVAL = 2500;
@@ -28,7 +32,7 @@ export default class Content extends React.Component {
     this.pollServer();
   }
   onEditorChange = (editorState) => {
-    // console.debug('onEditorChange');
+    window.editorState = editorState;
     const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
     const timeStamp = Date.now();
     if (didContentChange) {
@@ -56,7 +60,7 @@ export default class Content extends React.Component {
         this.lastUpdated = Date.now();
         getCurrentPage(pn)
           .then((content) => {
-            if (content.timeStamp > this.state.timeStamp) {
+            if (content && (content.timeStamp > this.state.timeStamp)) {
               console.debug('polled to get data', content.timeStamp);
               this.updateEditor(content);
             }
@@ -65,28 +69,64 @@ export default class Content extends React.Component {
     }, INTERVAL);
   }
 
-  focus = () => this.refs.editor.focus();
+  focus = () => this.refs.editor.clickHandler();
 
   writeUserData = (editorState, timeStamp) => {
     setCurrentPageThrottled(pn, editorState.getCurrentContent(), timeStamp);
   }
   updateEditor = (content) => {
     if (content && content.editorState) {
+      const { editorState } = this.state;
+      const currentContentState = editorState.getCurrentContent();
+      const currentSelectionKey = editorState.getSelection().getFocusKey();
+      const currentSelectionOffset = editorState.getSelection().getFocusOffset();
+      const currentBlock = currentContentState.getBlockForKey(currentSelectionKey);
+      // console.log(currentSelectionKey, currentSelectionOffset, currentBlock.getText());
+
+      let newEditorState = EditorState.push(
+        this.state.editorState,
+        convertFromRaw(JSON.parse(content.editorState)),
+        'change-block-data'
+      );
+      const selectionState = SelectionState.createEmpty(currentSelectionKey);
+      var updatedSelection = selectionState.merge({
+        focusKey: currentSelectionKey,
+        focusOffset: currentSelectionOffset,
+        anchorOffset: currentSelectionOffset,
+      });
+
+
+      // console.log(updatedSelection.getFocusOffset(), newEditorState.getCurrentContent().getBlockForKey(updatedSelection.getFocusKey()).getText());
+
+      newEditorState = EditorState.acceptSelection(
+        newEditorState,
+        updatedSelection,
+      );
+      const newContentState = newEditorState.getCurrentContent();
+      printData(newContentState, '59qnh');
+      printData(currentContentState, '59qnh');
+      printData(newContentState, newEditorState.getSelection().getFocusKey());
+      console.log(editorState.getSelection().getFocusKey(), editorState.getSelection().getAnchorKey());
+      // console.log(currentContentState.getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
+      // console.log(newEditorState.getCurrentContent().getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
+      // console.log(newEditorState.getCurrentContent().getBlockForKey(newEditorState.getSelection().getFocusKey()));
+
       this.setState({
-        editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
+        editorState: newEditorState,
         timeStamp: content.timeStamp,
       });
     }
   }
   render() {
     return (
-      <div>
+      <div style={{ margin: '0 10px', height: '100%' }} onClick={this.focus}>
         <Editor
           onEditorChange={this.onEditorChange}
           editorState={this.state.editorState}
           placeholder="Enter some text..."
           ref="editor"
         />
+
       </div>
     );
   }
