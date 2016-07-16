@@ -44,7 +44,7 @@ export default class Content extends React.Component {
     this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
       const content = snapshot.val();
       if (content.timeStamp > this.state.timeStamp) {
-        console.debug('child_changed event fired');
+        console.debug('child_changed event fired', content.timeStamp);
         this.lastUpdated = Date.now();
         this.updateEditor(content);
       }
@@ -57,7 +57,7 @@ export default class Content extends React.Component {
         getCurrentPage(pn)
           .then((content) => {
             if (content.timeStamp > this.state.timeStamp) {
-              console.debug('polled to get data');
+              console.debug('polled to get data', content.timeStamp);
               this.updateEditor(content);
             }
           });
