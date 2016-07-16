@@ -17,7 +17,7 @@ function debounce(func, wait, immediate) {
 }
 
 export function setCurrentPage(path, currentContent, timeStamp) {
-  console.log("sending", timeStamp);
+  console.debug('sending', timeStamp);
   fetch(`${FIREBASE_URL}/data/${path}/current.json`, {
     method: 'put',
     body: JSON.stringify({

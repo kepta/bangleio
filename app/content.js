@@ -1,11 +1,10 @@
 import React from 'react';
 import Editor from './Editor';
 import History from './History';
-import { EditorState, convertFromRaw } from 'draft-js';
+import { EditorState, convertFromRaw, SelectionState } from 'draft-js';
 import { getCurrentPage } from './network/getData';
 import { setCurrentPageThrottled, updateHistory } from './network/setData';
 import { mergeState } from './utility/mergeUtility';
-// import firebase from 'firebase';
 
 let pn = window.location.pathname;
 if (pn === '/') {
@@ -14,6 +13,12 @@ if (pn === '/') {
   pn = pn.slice(1);
 }
 
+function printData(contentState, key) {
+  console.log(key, !!contentState.getBlockForKey(key), contentState.getBlockForKey(key) && contentState.getBlockForKey(key).getText());
+}
+
+const INTERVAL = 2500;
+
 export default class Content extends React.Component {
   static propTypes = {
     database: React.PropTypes.object.isRequired,
@@ -21,48 +26,95 @@ export default class Content extends React.Component {
   state = {
     editorState: EditorState.createEmpty(),
     timeStamp: Date.now(),
-    currentJsonText: null,
   }
+
   componentDidMount() {
-    // this.refs.editor.focus();
     getCurrentPage(pn)
       .then(this.updateEditor);
     this.pollServer();
   }
   onEditorChange = (editorState) => {
-    this.writeUserData(editorState);
-    this.setState({ editorState, timeStamp: Date.now() });
+    window.editorState = editorState;
+    const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
+    const timeStamp = Date.now();
+    if (didContentChange) {
+      this.writeUserData(editorState, timeStamp);
+    }
+    this.setState({ editorState, timeStamp: didContentChange ? timeStamp : this.state.timeStamp });
   };
 
-  lastSent = Date.now();
+  lastUpdated = Date.now();
 
   pollServer = () => {
     // CHECK: snapshot should have editorState and timeStamp
     this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
       const content = snapshot.val();
-      // console.log('"crash"');
       if (content.timeStamp > this.state.timeStamp) {
+        console.debug('child_changed event fired', content.timeStamp);
+        this.lastUpdated = Date.now();
         this.updateEditor(content);
       }
     });
+
+    // polling every 2 sec just in case child_changed didn't fire
+    setInterval(() => {
+      if (Date.now() - this.lastUpdated > INTERVAL) {
+        this.lastUpdated = Date.now();
+        getCurrentPage(pn)
+          .then((content) => {
+            if (content && (content.timeStamp > this.state.timeStamp)) {
+              console.debug('polled to get data', content.timeStamp);
+              this.updateEditor(content);
+            }
+          });
+      }
+    }, INTERVAL);
   }
 
-  focus = () => this.refs.editor.focus();
+  focus = () => this.refs.editor.clickHandler();
 
-  writeUserData = () => {
-    setCurrentPageThrottled(pn, this.state.editorState.getCurrentContent(), this.state.timeStamp);
+  writeUserData = (editorState, timeStamp) => {
+    setCurrentPageThrottled(pn, editorState.getCurrentContent(), timeStamp);
   }
   updateEditor = (content) => {
-
     if (content && content.editorState) {
-      if(this.state.currentJsonText == null){
-        this.setState({ currentJsonText: JSON.parse(content.editorState) });
-      } else {
-        const newState = mergeState(this.state.currentJsonText, JSON.parse(content.editorState));
-        this.setState({ currentJsonText: newState });
-      }
+      const { editorState } = this.state;
+      const currentContentState = editorState.getCurrentContent();
+      const currentSelectionKey = editorState.getSelection().getFocusKey();
+      const currentSelectionOffset = editorState.getSelection().getFocusOffset();
+      const currentBlock = currentContentState.getBlockForKey(currentSelectionKey);
+      // console.log(currentSelectionKey, currentSelectionOffset, currentBlock.getText());
+
+      let newEditorState = EditorState.push(
+        this.state.editorState,
+        convertFromRaw(JSON.parse(content.editorState)),
+        'change-block-data'
+      );
+      const selectionState = SelectionState.createEmpty(currentSelectionKey);
+      var updatedSelection = selectionState.merge({
+        focusKey: currentSelectionKey,
+        focusOffset: currentSelectionOffset,
+        anchorOffset: currentSelectionOffset,
+      });
+
+
+      // console.log(updatedSelection.getFocusOffset(), newEditorState.getCurrentContent().getBlockForKey(updatedSelection.getFocusKey()).getText());
+
+      newEditorState = EditorState.acceptSelection(
+        newEditorState,
+        updatedSelection,
+      );
+      const newContentState = newEditorState.getCurrentContent();
+      printData(newContentState, '59qnh');
+      printData(currentContentState, '59qnh');
+      printData(newContentState, newEditorState.getSelection().getFocusKey());
+      console.log(editorState.getSelection().getFocusKey(), editorState.getSelection().getAnchorKey());
+      // console.log(currentContentState.getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
+      // console.log(newEditorState.getCurrentContent().getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
+      // console.log(newEditorState.getCurrentContent().getBlockForKey(newEditorState.getSelection().getFocusKey()));
+
       this.setState({
-        editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
+        editorState: newEditorState,
         timeStamp: content.timeStamp,
       });
     }
@@ -77,7 +129,7 @@ export default class Content extends React.Component {
   }
   render() {
     return (
-      <div className="container" id="editor">
+      <div style={{ margin: '0 10px', height: '100%' }} onClick={this.focus}>
         <Editor
           onEditorChange={this.onEditorChange}
           editorState={this.state.editorState}

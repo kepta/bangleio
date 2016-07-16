@@ -1,5 +1,6 @@
 import React from 'react';
-import Content from './content';
+import Content from './Content';
+import TitleBar from './TitleBar';
 
 
 export default class App extends React.Component {
@@ -9,8 +10,7 @@ export default class App extends React.Component {
   render() {
     return (
       <div className="title-bar">
-        <h1> Bangle.IO </h1>
-        <h4> Your custom data storage and modification arena </h4>
+        <TitleBar />
         <br />
         <div className="row">
           <div>
