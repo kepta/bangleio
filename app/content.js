@@ -3,7 +3,6 @@ import Editor from './Editor';
 import { EditorState, convertFromRaw } from 'draft-js';
 import { getCurrentPage } from './network/getData';
 import { setCurrentPageThrottled } from './network/setData';
-// import firebase from 'firebase';
 
 let pn = window.location.pathname;
 if (pn === '/') {
@@ -29,21 +28,17 @@ export default class Content extends React.Component {
   onEditorChange = (editorState) => {
     // console.debug('onEditorChange');
     const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
-    const date = Date.now();
     if (didContentChange) {
-      this.writeUserData(editorState, date);
+      this.writeUserData(editorState);
     }
     // console.log(didContentChange, Date.now());
-    this.setState({ editorState, timeStamp: didContentChange ? date : this.state.timeStamp });
+    this.setState({ editorState, timeStamp: didContentChange ? Date.now() : this.state.timeStamp });
   };
-
-  lastSent = Date.now();
 
   pollServer = () => {
     // CHECK: snapshot should have editorState and timeStamp
     this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
       const content = snapshot.val();
-      console.log('"fetched"', content.timeStamp, content.timeStamp === this.state.timeStamp);
       if (content.timeStamp > this.state.timeStamp) {
         this.updateEditor(content);
       }
@@ -52,12 +47,11 @@ export default class Content extends React.Component {
 
   focus = () => this.refs.editor.focus();
 
-  writeUserData = (editorState, date) => {
-    setCurrentPageThrottled(pn, editorState.getCurrentContent(), date);
+  writeUserData = (editorState) => {
+    setCurrentPageThrottled(pn, editorState.getCurrentContent(), this.state.timeStamp);
   }
   updateEditor = (content) => {
     if (content && content.editorState) {
-      // console.debug("updagteEditor", content.timeStamp);
       this.setState({
         editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(content.editorState))),
         timeStamp: content.timeStamp,
