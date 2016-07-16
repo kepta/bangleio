@@ -11,6 +11,8 @@ if (pn === '/') {
   pn = pn.slice(1);
 }
 
+const INTERVAL = 2500;
+
 export default class Content extends React.Component {
   static propTypes = {
     database: React.PropTypes.object.isRequired,
@@ -19,8 +21,8 @@ export default class Content extends React.Component {
     editorState: EditorState.createEmpty(),
     timeStamp: Date.now(),
   }
+
   componentDidMount() {
-    // this.refs.editor.focus();
     getCurrentPage(pn)
       .then(this.updateEditor);
     this.pollServer();
@@ -28,27 +30,45 @@ export default class Content extends React.Component {
   onEditorChange = (editorState) => {
     // console.debug('onEditorChange');
     const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
+    const timeStamp = Date.now();
     if (didContentChange) {
-      this.writeUserData(editorState);
+      this.writeUserData(editorState, timeStamp);
     }
-    // console.log(didContentChange, Date.now());
-    this.setState({ editorState, timeStamp: didContentChange ? Date.now() : this.state.timeStamp });
+    this.setState({ editorState, timeStamp: didContentChange ? timeStamp : this.state.timeStamp });
   };
+
+  lastUpdated = Date.now();
 
   pollServer = () => {
     // CHECK: snapshot should have editorState and timeStamp
     this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
       const content = snapshot.val();
       if (content.timeStamp > this.state.timeStamp) {
+        console.debug('child_changed event fired');
+        this.lastUpdated = Date.now();
         this.updateEditor(content);
       }
     });
+
+    // polling every 2 sec just in case child_changed didn't fire
+    setInterval(() => {
+      if (Date.now() - this.lastUpdated > INTERVAL) {
+        this.lastUpdated = Date.now();
+        getCurrentPage(pn)
+          .then((content) => {
+            if (content.timeStamp > this.state.timeStamp) {
+              console.debug('polled to get data');
+              this.updateEditor(content);
+            }
+          });
+      }
+    }, INTERVAL);
   }
 
   focus = () => this.refs.editor.focus();
 
-  writeUserData = (editorState) => {
-    setCurrentPageThrottled(pn, editorState.getCurrentContent(), this.state.timeStamp);
+  writeUserData = (editorState, timeStamp) => {
+    setCurrentPageThrottled(pn, editorState.getCurrentContent(), timeStamp);
   }
   updateEditor = (content) => {
     if (content && content.editorState) {
