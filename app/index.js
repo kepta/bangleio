@@ -1,21 +1,37 @@
 import './style/reset.css';
 import './style/app.css';
-
+import 'whatwg-fetch';
 import React from 'react';
 import render from 'react-dom';
+import { createStore, combineReducers, applyMiddleware, compose } from 'redux';
+import { Provider } from 'react-redux';
+import thunkMiddleware from 'redux-thunk';
+import reduxLogger from 'redux-logger';
+
 import App from './app';
-import './app.css';
-import 'whatwg-fetch';
-import firebase from 'firebase';
+import reducer from './redux/reducers';
 
-const config = {
-  apiKey: 'AIzaSyC__3F3crIHSstH4c8UQwJV0YRiWg_WbPI',
-  authDomain: 'bangle-d53bd.firebaseapp.com',
-  databaseURL: 'https://bangle-d53bd.firebaseio.com',
-  storageBucket: 'bangle-d53bd.appspot.com',
-};
+let middleware = [thunkMiddleware];
+if (process.env.NODE_ENV !== 'production') {
+  const loggerMiddleware = reduxLogger();
+  middleware = [...middleware, loggerMiddleware];
+}
 
-firebase.initializeApp(config);
-const database = firebase.database();
+const store = createStore(
+  combineReducers({
+    reducer,
+  }), undefined,
+  compose(
+    applyMiddleware(
+      ...middleware
+    ),
+    window.devToolsExtension ? window.devToolsExtension() : f => f
+  )
+);
 
-render.render(<App database={database} />, document.getElementById('app'));
+render.render(
+  <Provider store={store}>
+    <App />
+  </Provider>,
+  document.getElementById('app')
+);

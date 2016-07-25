@@ -1,147 +1,71 @@
 import React from 'react';
 import Editor from './Editor';
-import History from './History';
-import { EditorState, convertFromRaw, SelectionState } from 'draft-js';
-import { getCurrentPage } from './network/getData';
-import { setCurrentPageThrottled, updateHistory } from './network/setData';
-import { mergeState } from './utility/mergeUtility';
+import { bindActionCreators } from 'redux';
+import { connect } from 'react-redux';
+import * as actions from './redux/actions';
+import { debounce } from './helpers';
+import { convertToRaw } from 'draft-js';
+import { OrderedMap } from 'immutable';
 
-let pn = window.location.pathname;
-if (pn === '/') {
-  pn = 'root';
-} else {
-  pn = pn.slice(1);
+const THRESHOLD = 1500;
+
+function mapStateToProps(state) {
+  return { ...state.reducer };
 }
 
-function printData(contentState, key) {
-  console.log(key, !!contentState.getBlockForKey(key), contentState.getBlockForKey(key) && contentState.getBlockForKey(key).getText());
+function mapDispatchToProps(dispatch) {
+  return bindActionCreators(actions, dispatch);
 }
 
-const INTERVAL = 2500;
-
+@connect(mapStateToProps, mapDispatchToProps)
 export default class Content extends React.Component {
   static propTypes = {
-    database: React.PropTypes.object.isRequired,
+    getPage: React.PropTypes.func,
+    setPage: React.PropTypes.func,
+    editor: React.PropTypes.object,
+    firebase: React.PropTypes.object,
   }
+
   state = {
-    editorState: EditorState.createEmpty(),
-    timeStamp: Date.now(),
+    editorState: this.props.editor.editorState,
+    count: 0,
   }
 
   componentDidMount() {
-    getCurrentPage(pn)
-      .then(this.updateEditor);
-    this.pollServer();
-  }
-  onEditorChange = (editorState) => {
-    window.editorState = editorState;
-    const didContentChange = editorState.getCurrentContent() !== this.state.editorState.getCurrentContent();
-    const timeStamp = Date.now();
-    if (didContentChange) {
-      this.writeUserData(editorState, timeStamp);
-    }
-    this.setState({ editorState, timeStamp: didContentChange ? timeStamp : this.state.timeStamp });
-  };
-
-  lastUpdated = Date.now();
-
-  pollServer = () => {
-    // CHECK: snapshot should have editorState and timeStamp
-    this.props.database.ref(`data/${pn}`).on('child_changed', (snapshot) => {
-      const content = snapshot.val();
-      if (content.timeStamp > this.state.timeStamp) {
-        console.debug('child_changed event fired', content.timeStamp);
-        this.lastUpdated = Date.now();
-        this.updateEditor(content);
-      }
-    });
-
-    // polling every 2 sec just in case child_changed didn't fire
-    setInterval(() => {
-      if (Date.now() - this.lastUpdated > INTERVAL) {
-        this.lastUpdated = Date.now();
-        getCurrentPage(pn)
-          .then((content) => {
-            if (content && (content.timeStamp > this.state.timeStamp)) {
-              console.debug('polled to get data', content.timeStamp);
-              this.updateEditor(content);
-            }
-          });
-      }
-    }, INTERVAL);
+    this.props.getPage(this.props.editor.pageName);
   }
 
-  focus = () => this.refs.editor.clickHandler();
-
-  writeUserData = (editorState, timeStamp) => {
-    setCurrentPageThrottled(pn, editorState.getCurrentContent(), timeStamp);
-  }
-  updateEditor = (content) => {
-    if (content && content.editorState) {
-      const { editorState } = this.state;
-      const currentContentState = editorState.getCurrentContent();
-      const currentSelectionKey = editorState.getSelection().getFocusKey();
-      const currentSelectionOffset = editorState.getSelection().getFocusOffset();
-      const currentBlock = currentContentState.getBlockForKey(currentSelectionKey);
-      // console.log(currentSelectionKey, currentSelectionOffset, currentBlock.getText());
-
-      let newEditorState = EditorState.push(
-        this.state.editorState,
-        convertFromRaw(JSON.parse(content.editorState)),
-        'change-block-data'
-      );
-      const selectionState = SelectionState.createEmpty(currentSelectionKey);
-      var updatedSelection = selectionState.merge({
-        focusKey: currentSelectionKey,
-        focusOffset: currentSelectionOffset,
-        anchorOffset: currentSelectionOffset,
-      });
-
-
-      // console.log(updatedSelection.getFocusOffset(), newEditorState.getCurrentContent().getBlockForKey(updatedSelection.getFocusKey()).getText());
-
-      newEditorState = EditorState.acceptSelection(
-        newEditorState,
-        updatedSelection,
-      );
-      const newContentState = newEditorState.getCurrentContent();
-      printData(newContentState, '59qnh');
-      printData(currentContentState, '59qnh');
-      printData(newContentState, newEditorState.getSelection().getFocusKey());
-      console.log(editorState.getSelection().getFocusKey(), editorState.getSelection().getAnchorKey());
-      // console.log(currentContentState.getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
-      // console.log(newEditorState.getCurrentContent().getBlocksAsArray().map((f) => ({ key: f.getKey(), data: f.getText() }) ));
-      // console.log(newEditorState.getCurrentContent().getBlockForKey(newEditorState.getSelection().getFocusKey()));
-
-      this.setState({
-        editorState: newEditorState,
-        timeStamp: content.timeStamp,
-      });
+  processData = (editorState) => {
+    const blockMap = editorState.getCurrentContent().getBlockMap();
+    if (this.lastBlockMap !== blockMap) {
+      this.lastBlockMap = blockMap;
+      // console.log(blockMap.toJS());
+      window.pp = editorState.getCurrentContent().getBlocksAsArray();
+      // var p = ContentState.createFromBlockArray(OrderedMap(editorState.getCurrentContent().getBlockMap().toJS()).toSeq().toArray());
+      const raw = convertToRaw(editorState.getCurrentContent());
+      console.log(raw.map(e => ({...e, count: 0})));
+      this.props.setPage(this.props.editor.pageName, raw);
     }
   }
-  updateRevisionEditor = (state) => {
-    // console.log(state);
-    this.setState({ editorState: EditorState.createWithContent(convertFromRaw(JSON.parse(state))), timeStamp: Date.now() });
-  }
-  onSubmit = () => {
-    const editorState = this.state.editorState;
-    updateHistory(pn, editorState.getCurrentContent(), Date.now(), this.props.database);
-  }
+
+  setPageThrottle = debounce(this.processData, THRESHOLD, false);
+
+  lastContent = null;
+
   render() {
     return (
       <div style={{ margin: '0 10px', height: '100%' }} onClick={this.focus}>
-        <Editor
-          onEditorChange={this.onEditorChange}
-          editorState={this.state.editorState}
-          placeholder="Enter some text..."
-          ref="editor"
-        />
-        <br />
-        <button onClick={this.onSubmit}> Submit </button>
-        <br />
-        <div>
-          <History database={this.props.database} updateEditor={this.updateRevisionEditor} />
-        </div>
+      {
+        this.props.editor.rawDraftContentState ?
+          <Editor
+            rawDraftContentState={this.props.editor.rawDraftContentState}
+            setPage={this.setPageThrottle}
+            pageName={this.props.editor.pageName}
+            placeholder="Enter some text..."
+            ref="editor"
+          />
+        : null
+      }
       </div>
     );
   }

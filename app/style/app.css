@@ -5,3 +5,9 @@
 body {
   background-color: rgba(199, 183, 166, 0.25);
 }
+
+#editor {
+  border-radius: 10px;
+  padding: 10px;
+  border: 2px solid black;
+}

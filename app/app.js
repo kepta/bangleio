@@ -4,9 +4,6 @@ import TitleBar from './TitleBar';
 
 
 export default class App extends React.Component {
-  static propTypes = {
-    database: React.PropTypes.object.isRequired,
-  }
   render() {
     return (
       <div className="title-bar">
@@ -14,7 +11,7 @@ export default class App extends React.Component {
         <br />
         <div className="row">
           <div>
-            <Content database={this.props.database} />
+            <Content />
           </div>
         </div>
       </div>

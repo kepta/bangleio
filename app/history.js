@@ -44,8 +44,9 @@ export default class History extends React.Component {
     const historyPanel = this.state.historyPanel;
     const updateEditor = this.props.updateEditor;
     const timeStamps = historyPanel.map((value) => {
-      return (<div key={value['timeStamp']}> {value['timeStamp']} <br/>
-    <button onClick= {updateEditor.bind(this,value['editorState'])} > Revert </button><hr /></div>);
+      return (
+        <div key={value['timeStamp']}> {value['timeStamp']} <br/>
+            <button onClick= {updateEditor.bind(this,value['editorState']) } > Revert </button><br /></div>);
     });
     return (
       <div>

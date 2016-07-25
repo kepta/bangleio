@@ -1,38 +1,25 @@
 import { FIREBASE_URL } from '../const';
 import { convertToRaw } from 'draft-js';
-const THRESHOLD = 1000;
+import { database } from 'firebase';
 
-function debounce(func, wait, immediate) {
-  let timeout;
-  return function foo(...args) {
-    const later = () => {
-      timeout = null;
-      if (!immediate) func.apply(this, args);
-    };
-    const callNow = immediate && !timeout;
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-    if (callNow) func.apply(this, args);
-  };
-}
-
-export function setCurrentPage(path, currentContent, timeStamp) {
-  console.debug('sending', timeStamp);
-  fetch(`${FIREBASE_URL}/data/${path}/current.json`, {
+export function setPage(path, data) {
+  return fetch(`${FIREBASE_URL}/data/${path}/current.json`, {
     method: 'put',
     body: JSON.stringify({
-      editorState: JSON.stringify(convertToRaw(currentContent)),
-      timeStamp,
+      ...data,
+      // editorState: JSON.stringify(convertToRaw(currentContent)),
+      timeStamp: database.ServerValue.TIMESTAMP,
     }),
-  });
+  })
+  .then((d) => d.json());
 }
 
-export function updateHistory(pn, currentContent, timeStamp, database) {
+export function updateHistory(pn, currentContent, database) {
   console.log('History update');
-  database.ref(`data/${pn}`).child('history').push({
+  return database.ref(`data/${pn}`).child('history').push({
     editorState: JSON.stringify(convertToRaw(currentContent)),
-    timeStamp,
+    timeStamp: database.ServerValue.TIMESTAMP,
   });
 }
 
-export const setCurrentPageThrottled = debounce(setCurrentPage, THRESHOLD, false);
+// export const setCurrentPageThrottled = debounce(setCurrentPage, THRESHOLD, false);
