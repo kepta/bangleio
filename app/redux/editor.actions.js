@@ -5,6 +5,9 @@ export const REC_PAGE_ERROR = 'REC_PAGE_ERROR';
 export const REQ_SET_PAGE = 'REQ_SET_PAGE';
 export const REC_SET_PAGE = 'REC_SET_PAGE';
 
+export const CREATE_DIFF = 'CREATE_DIFF';
+export const REMOVE_DIFF = 'REMOVE_DIFF';
+
 import { getPage as getPageNetwork } from '../network/getData';
 import { setPage as setPageNetwork } from '../network/setData';
 
@@ -39,29 +42,39 @@ export function getPage(pageName) {
   };
 }
 
-export function reqSetPage(content) {
+export function reqSetPage(lastEditorState, blocksCount, hashCode) {
   return {
     type: REQ_SET_PAGE,
-    content,
+    blocksCount,
+    lastEditorState,
+    hashCode
   };
 }
 
 export function recSetPage(d) {
   return {
     type: REC_SET_PAGE,
-    data: d,
+    ...d,
   };
 }
 
-export function setPage(path, rawDraftContentState) {
+export function createDiff(diff) {
+  return {
+    type: CREATE_DIFF,
+    diff,
+  };
+}
+
+export function removeDiff() {
+  return {
+    type: REMOVE_DIFF,
+  };
+}
+
+export function setPage(lastEditorState, path, rawContentState, blocksCount, uid, hashCode) {
   return dispatch => {
-    dispatch(reqSetPage(rawDraftContentState));
-    return setPageNetwork(path, { rawDraftContentState : JSON.stringify(rawDraftContentState) })
+    dispatch(reqSetPage(lastEditorState, blocksCount, hashCode));
+    return setPageNetwork(path, { contentState: JSON.stringify(rawContentState), blocksCount, uid, hashCode })
       .then((d) => dispatch(recSetPage(d)));
   };
-  // return dispatch => {
-  //   dispatch(reqSetPage(data));
-  //   return setPageNetwork(path, data)
-  //     .then((d) => dispatch(recSetPage(d)));
-  // };
 }

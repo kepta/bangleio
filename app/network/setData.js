@@ -7,7 +7,6 @@ export function setPage(path, data) {
     method: 'put',
     body: JSON.stringify({
       ...data,
-      // editorState: JSON.stringify(convertToRaw(currentContent)),
       timeStamp: database.ServerValue.TIMESTAMP,
     }),
   })
