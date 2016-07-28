@@ -12,7 +12,7 @@ module.exports = {
 
   'rules': {
     'max-len': ["error", {
-        "code": 120,
+        "code": 220,
         "ignoreComments": true,
         "ignoreTrailingComments": true,
         "ignoreUrls": true
@@ -21,5 +21,7 @@ module.exports = {
     'arrow-body-style': [2, "as-needed"],
     "no-underscore-dangle": [0, ],
     'no-console': 1,
+    "new-cap": 0,
+    'quote-props': 0,
   }
 };

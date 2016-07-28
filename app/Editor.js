@@ -1,17 +1,16 @@
 import React from 'react';
 import { Editor, EditorState, convertToRaw, convertFromRaw, SelectionState } from 'draft-js';
-import { mergeArray } from './helpers';
+import { mergeContent } from './helpers';
 
 
 export default class MyEditor extends React.Component {
   static propTypes = {
     setPage: React.PropTypes.func,
-    pageName: React.PropTypes.string,
     contentState: React.PropTypes.object,
-    lastEditorState: React.PropTypes.object,
   }
 
   state = {
+    readonly: false,
     editorState: this.props.contentState === 'blank' ?
     EditorState.createEmpty() :
     EditorState.createWithContent(
@@ -19,76 +18,75 @@ export default class MyEditor extends React.Component {
     ),
   }
 
-  mergePendingDiff = (editorState) => {
-    const raw = convertToRaw(editorState.getCurrentContent());
-    const rawBlocksLocal = raw.blocks;
-    const rawBlocksNetwork = this.props.pendingDiff.contentState.blocks;
+  shouldComponentUpdate(props, nextState) {
+    if (nextState.editorState !== this.state.editorState) {
+      return true;
+    }
+    return false;
+  }
 
-    const blocksMerged = mergeArray(rawBlocksLocal, rawBlocksNetwork, (a, b) => {
+  componentDidMount() {
+    window.onChange = this.onChange;
+
+    setTimeout(() => {
+
+    }, 10000);
+  }
+
+  mergePendingDiff = (pendingDiff) => {
+    this.setState({ readOnly: true });
+    const editorState = this.state.editorState;
+    const rawBlocksNetwork = pendingDiff.contentState.blocks;
+
+    const selectionState = SelectionState.createEmpty(editorState.getSelection().getAnchorKey());
+    const updatedSelection = selectionState.merge({
+      focusKey: editorState.getSelection().getFocusKey(),
+      focusOffset: editorState.getSelection().getFocusOffset(),
+      anchorOffset: editorState.getSelection().getAnchorOffset(),
+      hasFocus: true,
+    });
+
+    const currentContent = mergeContent(editorState.getCurrentContent(), rawBlocksNetwork, (a, b) => {
       const localBlocksCount = this.props.blocksCount;
-      const networkBlocksCount = this.props.pendingDiff.blocksCount;
-      if (networkBlocksCount[a.key] === -1) return -1;
+      const networkBlocksCount = pendingDiff.blocksCount;
       if (!networkBlocksCount[a.key]) {
         return a;
       }
       if (!localBlocksCount[a.key]) {
         return b;
       }
-      if (networkBlocksCount[a.key].times > localBlocksCount[a.key].times) {
-        return b;
+      if (networkBlocksCount[a.key] === -1) return -1;
+
+      if (a.key === editorState.getSelection().getFocusKey()) {
+        console.log('on focus');
+        return a;
       }
-      return a;
+
+      return b;
     });
-
-    raw.blocks = blocksMerged;
-
-    const currentSelectionKey = editorState.getSelection().getFocusKey();
-    const currentSelectionOffset = editorState.getSelection().getFocusOffset();
 
     let newEditorState = EditorState.push(
       editorState,
-      convertFromRaw(raw),
+      currentContent,
       'change-block-data'
     );
-
-    const selectionState = SelectionState.createEmpty(currentSelectionKey);
-    const updatedSelection = selectionState.merge({
-      focusKey: currentSelectionKey,
-      focusOffset: currentSelectionOffset,
-      anchorOffset: currentSelectionOffset,
-    });
-
+    //
     newEditorState = EditorState.acceptSelection(
       newEditorState,
       updatedSelection,
     );
-    this.newEditorState = newEditorState;
-    this.timer = setTimeout(() => {
-      console.log("crash");
-      this.setState({ editorState: newEditorState });
-      this.newEditorState = null;
-    }, 500);
+
+    this.setState({
+      readOnly: false,
+      editorState: newEditorState,
+    });
   }
 
-  onEditorChange = (editorState) => {
-    if (this.newEditorState) {
-      console.log("crash2");
-
-      this.setState({ editorState: this.newEditorState });
-      clearTimeout(this.timer);
-      this.newEditorState = null;
-    } else {
-      this.setState({ editorState });
-      this.props.setPage(editorState);
-    }
-  }
+  onChange = (editorState) => this.setState({ editorState });
 
   clickHandler = () => this.refs.editor.focus();
   render() {
-    if (this.props.pendingDiff) {
-      this.props.removeDiff();
-      this.mergePendingDiff(this.state.editorState);
-    }
-    return <Editor ref="editor" editorState={this.state.editorState} onChange={this.onEditorChange} />;
+    this.props.processData(this.state.editorState);
+    return <Editor ref="editor" readOnly={this.state.readOnly} editorState={this.state.editorState} onChange={this.onChange} />;
   }
 }
