@@ -1,7 +1,8 @@
 import React from 'react';
 import { Editor, EditorState, convertToRaw, convertFromRaw, SelectionState } from 'draft-js';
 import { mergeContent } from './helpers';
-
+import { difference } from './operations/difference';
+import { debounce } from './helpers';
 
 export default class MyEditor extends React.Component {
   static propTypes = {
@@ -19,10 +20,7 @@ export default class MyEditor extends React.Component {
   }
 
   shouldComponentUpdate(props, nextState) {
-    if (nextState.editorState !== this.state.editorState) {
-      return true;
-    }
-    return false;
+    return nextState.editorState !== this.state.editorState;
   }
 
   componentDidMount() {
@@ -34,17 +32,12 @@ export default class MyEditor extends React.Component {
   }
 
   mergePendingDiff = (pendingDiff) => {
-    this.setState({ readOnly: true });
     const editorState = this.state.editorState;
-    const rawBlocksNetwork = pendingDiff.contentState.blocks;
 
-    const selectionState = SelectionState.createEmpty(editorState.getSelection().getAnchorKey());
-    const updatedSelection = selectionState.merge({
-      focusKey: editorState.getSelection().getFocusKey(),
-      focusOffset: editorState.getSelection().getFocusOffset(),
-      anchorOffset: editorState.getSelection().getAnchorOffset(),
-      hasFocus: true,
-    });
+    const updatedSelection = editorState.getSelection();
+
+    this.setState({ readOnly: true });
+    const rawBlocksNetwork = pendingDiff.contentState.blocks;
 
     const currentContent = mergeContent(editorState.getCurrentContent(), rawBlocksNetwork, (a, b) => {
       const localBlocksCount = this.props.blocksCount;
@@ -58,7 +51,6 @@ export default class MyEditor extends React.Component {
       if (networkBlocksCount[a.key] === -1) return -1;
 
       if (a.key === editorState.getSelection().getFocusKey()) {
-        console.log('on focus');
         return a;
       }
 
@@ -70,7 +62,7 @@ export default class MyEditor extends React.Component {
       currentContent,
       'change-block-data'
     );
-    //
+
     newEditorState = EditorState.acceptSelection(
       newEditorState,
       updatedSelection,
@@ -84,9 +76,12 @@ export default class MyEditor extends React.Component {
 
   onChange = (editorState) => this.setState({ editorState });
 
+  differenceFunction = debounce(difference, 1000, false);
+
+
   clickHandler = () => this.refs.editor.focus();
   render() {
-    this.props.processData(this.state.editorState);
+    differenceFunction(this.state.editorState);
     return <Editor ref="editor" readOnly={this.state.readOnly} editorState={this.state.editorState} onChange={this.onChange} />;
   }
 }

@@ -39,38 +39,55 @@ export default class Content extends React.Component {
     this.childChange();
   }
 
-  lastUpdated = 0
+  hashCode = 0
 
   childChange = () => {
-    this.props.firebase.database.ref(`data/${this.props.editor.pageName}`).on('child_changed', (snapshot) => {
+    this.props.firebase.database.ref(`data/${this.props.editor.pageName}/current/blocksCount`).on('child_changed', (snapshot) => {
       const data = snapshot.val();
       this.lastUpdated = Date.now();
-      // console.log('ere');
-      if (data && data.uid !== this.props.editor.uid && this.props.editor.hash !== data.hashCode) {
-        data.contentState = JSON.parse(data.contentState);
-        this.refs.editor.mergePendingDiff(data);
+      console.log('child changed', data);
+
+      if (this.hashCode !== data.hashCode) {
+        console.log("automagically updated");
+        //
+        // data.contentState = JSON.parse(data.contentState);
+        // this.refs.editor.mergePendingDiff(data);
+        // this.hashCode = data.hashCode;
       }
     });
-    // setInterval(() => {
-    //   if (Date.now() - this.lastUpdated > INTERVAL) {
-    //     this.lastUpdated = Date.now();
-    //     getPage(this.props.editor.pageName)
-    //     .then((data) => {
-    //       const ret = data;
-    //       if (!data) return;
-    //       if (data.uid !== this.props.editor.uid && this.props.editor.hash !== data.hashCode) {
-    //         console.log("crash", data.uid , this.props.editor.uid);
-    //         ret.contentState = JSON.parse(ret.contentState);
-    //         this.props.createDiff(ret);
-    //       }
-    //     });
-    //   }
-    // }, INTERVAL);
+    this.props.firebase.database.ref(`data/${this.props.editor.pageName}/current/blocksCount`).on('child_added', (snapshot) => {
+      const data = snapshot.val();
+      this.lastUpdated = Date.now();
+      console.log('added,' , data);
+
+      if (this.hashCode !== data.hashCode) {
+        console.log("automagically updated");
+        //
+        // data.contentState = JSON.parse(data.contentState);
+        // this.refs.editor.mergePendingDiff(data);
+        // this.hashCode = data.hashCode;
+      }
+    });
+    setInterval(() => {
+      if (Date.now() - this.lastUpdated > INTERVAL) {
+        this.lastUpdated = Date.now();
+        getPage(this.props.editor.pageName)
+        .then((data) => {
+          const ret = data;
+          if (!data) return;
+          if (this.hashCode !== data.hashCode) {
+            this.hashCode = data.hashCode;
+            console.log("manually updated");
+            ret.contentState = JSON.parse(ret.contentState);
+            this.props.createDiff(ret);
+          }
+        });
+      }
+    }, INTERVAL);
   }
 
   processData = (editorState) => {
     const blockMap = editorState.getCurrentContent().getBlockMap();
-    console.log(this.lastBlockMap && this.lastBlockMap.hashCode(), blockMap.hashCode());
 
     if ((this.lastBlockMap && this.lastBlockMap.hashCode()) !== blockMap.hashCode()) {
       const { uid, blocksCount } = this.props.editor;
