@@ -4,4 +4,6 @@ export {
   recPage,
   createDiff,
   removeDiff,
+  saveData,
+  saveContentState,
 } from './editor.actions';

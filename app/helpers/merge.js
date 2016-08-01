@@ -50,14 +50,30 @@ function makeSelection(start, end, key) {
   });
 }
 
+export function replaceLine(contentState, key, text) {
+  return Modifier.replaceText(
+    contentState,
+    makeSelection(0, contentState.getBlockForKey(key).getLength(), key),
+    text
+  );
+}
+
+export function removeLine(contentState, key) {
+  return Modifier.removeRange(
+    contentState,
+    SelectionState.createEmpty(contentState.getBlockBefore(key).getKey()).merge({
+      anchorOffset: contentState.getBlockBefore(key).getLength(),
+      focusKey: key,
+      focusOffset: contentState.getBlockForKey(key).getLength(),
+    }),
+    'forward'
+  );
+}
+
 function processReplace(toReplace, contentState) {
   let localContentState = contentState;
   Object.keys(toReplace).forEach((key) => {
-    localContentState = Modifier.replaceText(
-      localContentState,
-      makeSelection(0, contentState.getBlockForKey(key).getLength(), key),
-      toReplace[key].text
-    );
+    localContentState = replaceLine(localContentState, key, toReplace[key].text);
   });
   return localContentState;
 }
@@ -65,17 +81,36 @@ function processReplace(toReplace, contentState) {
 function processRemove(toRemove, contentStates) {
   let localContentState = contentStates;
   Object.keys(toRemove).forEach((key) => {
-    localContentState = Modifier.removeRange(
-      localContentState,
-      SelectionState.createEmpty(localContentState.getBlockBefore(key).getKey()).merge({
-        anchorOffset: localContentState.getBlockBefore(key).getLength(),
-        focusKey: key,
-        focusOffset: localContentState.getBlockForKey(key).getLength(),
-      }),
-      'forward'
-    );
+    localContentState = removeLine(localContentState, key);
   });
   return localContentState;
+}
+
+export function insertLine(block, ancestors, contentState) {
+  function findLastAncestor() {
+    let pos = ancestors.indexOf(block.key);
+    while (pos !== -1) {
+      const parentKey = ancestors[pos];
+      if (contentState.getBlockForKey(parentKey)) return parentKey;
+      pos--;
+    }
+    return '_NO_PARENT';
+  }
+  const lastCommonParent = findLastAncestor();
+  let map = new OrderedMap();
+  const oldMap = contentState.getBlockMap();
+  map = map.withMutations(m => {
+    Array.from(oldMap.keySeq()).forEach(k => {
+      m = m.set(k, oldMap.get(k));
+      if (k === lastCommonParent) {
+        m = m.set(block.key, createContentBlock(block.key, block.text));
+      }
+    });
+    if (lastCommonParent === '_NO_PARENT') {
+      m = m.set(block.key, createContentBlock(block.key, block.text));
+    }
+  });
+  return contentState.set('blockMap', map);
 }
 
 function processInsert(toInsert, newContentState) {
@@ -97,6 +132,19 @@ function processInsert(toInsert, newContentState) {
     }
   });
   return newContentState.set('blockMap', map);
+}
+
+export function insertLines(contentState, B) {
+  const keysB = B.map(b => b.key);
+  const toInsert = {};
+  keysB.forEach((kB, i) => {
+    const item = contentState.getBlockForKey(kB);
+    if (!item) {
+      const lastCommonParent = findLastCommonParent(i - 1, contentState, keysB);
+      safePush(toInsert, lastCommonParent, B[i]);
+    }
+  });
+  return processInsert(toInsert, contentState);
 }
 
 export function mergeContent(contentState, B, foo) {

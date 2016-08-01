@@ -1,7 +1,7 @@
 import { FIREBASE_URL } from '../const';
 
-export function getPage(page) {
-  return fetch(`${FIREBASE_URL}/data/${page}/current.json`)
+export function getPage(url) {
+  return fetch(`${FIREBASE_URL}/data/${url}.json`)
           .then((resp) => resp.json());
 }
 

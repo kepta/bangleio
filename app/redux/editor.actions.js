@@ -8,6 +8,9 @@ export const REC_SET_PAGE = 'REC_SET_PAGE';
 export const CREATE_DIFF = 'CREATE_DIFF';
 export const REMOVE_DIFF = 'REMOVE_DIFF';
 
+export const SAVE_DATA = 'SAVE_DATA';
+export const SAVE_CONTENTSTATE = 'SAVE_CONTENTSTATE';
+
 import { getPage as getPageNetwork } from '../network/getData';
 import { setPage as setPageNetwork } from '../network/setData';
 
@@ -68,6 +71,21 @@ export function createDiff(diff) {
 export function removeDiff() {
   return {
     type: REMOVE_DIFF,
+  };
+}
+
+export function saveData(blockMap, editorState) {
+  return {
+    type: SAVE_DATA,
+    blockMap,
+    editorState,
+  };
+}
+
+export function saveContentState(contentState) {
+  return {
+    type: SAVE_CONTENTSTATE,
+    contentState,
   };
 }
 

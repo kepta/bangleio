@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { mergeContent } from '../app/helpers/merge';
+import { mergeContent, insertLine } from '../app/helpers/merge';
 import { EditorState, convertFromRaw, convertToRaw } from 'draft-js';
 
 describe('merge tests', () => {
@@ -136,7 +136,54 @@ describe('merge tests', () => {
       ]);
     });
   });
-
+  describe('insert a line', () => {
+    let rawContentState = {
+      'entityMap': {},
+      'blocks': [
+          { 'key': '20s4l', 'text': 'lolz', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '23uc1', 'text': 'check1234e', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '27d7a', 'text': '2211...sdsd222222', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '2fjd0', 'text': 'sdsd', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '36m6e', 'text': 'e', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'ao31r', 'text': 'sdsdsss', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'edt0l', 'text': '', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'ets13', 'text': 'kushanssss', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'b4v0e', 'text': 'random', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '5pe16', 'text': 'check', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '7jn6b', 'text': '', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'b7b2b', 'text': 'line99', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': 'bq28v', 'text': 'randomness', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+          { 'key': '38im5', 'text': 'kushanss', 'type': 'unstyled', 'depth': 0, 'inlineStyleRanges': [], 'entityRanges': [], 'data': {} },
+      ],
+    };
+    const editorState = EditorState.createWithContent(convertFromRaw(rawContentState));
+    it('should add a line', () => {
+      const B =
+        { key: 'rando', text: 'wtf' }
+      ;
+      const contentState = insertLine(B, ['20s4l', '23uc1', '27d7a', 'rando'], editorState.getCurrentContent());
+      expect(contentState.getBlockForKey('rando').getText()).to.equal('wtf');
+      expect(contentState.getBlockBefore('rando').getText()).to.equal('2211...sdsd222222');
+      expect(contentState.getBlockAfter('rando').getText()).to.equal('sdsd');
+    });
+    it('should add a line center', () => {
+      const B =
+        { key: 'rando', text: 'wtf' }
+      ;
+      const contentState = insertLine(B, ['20s4l', 'rando', '27d7a'], editorState.getCurrentContent());
+      expect(contentState.getBlockForKey('rando').getText()).to.equal('wtf');
+      expect(contentState.getBlockBefore('rando').getText()).to.equal('lolz');
+      expect(contentState.getBlockAfter('rando').getText()).to.equal('check1234e');
+    });
+    it('should add a line end', () => {
+      const B =
+        { key: 'rando', text: 'wtf' }
+      ;
+      const contentState = insertLine(B, ['wtf', 'rando', '27d7a'], editorState.getCurrentContent());
+      expect(contentState.getBlockForKey('rando').getText()).to.equal('wtf');
+      expect(contentState.getBlockBefore('rando').getKey()).to.equal('38im5');
+    });
+  });
   describe('add block', () => {
     let rawContentState = {
       'entityMap': {},

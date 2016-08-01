@@ -3,7 +3,7 @@ import { convertToRaw } from 'draft-js';
 import { database } from 'firebase';
 
 export function setPage(path, data) {
-  return fetch(`${FIREBASE_URL}/data/${path}/current.json`, {
+  return fetch(`${FIREBASE_URL}/data/${path}.json`, {
     method: 'put',
     body: JSON.stringify({
       ...data,
