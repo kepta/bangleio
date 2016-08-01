@@ -39,7 +39,7 @@ export default class Content extends React.Component {
 
   componentDidMount() {
     this.props.getPage(`${this.props.editor.pageName}/current`);
-    this.childChange();
+    // this.childChange();
   }
 
   childChange = () => {
@@ -95,8 +95,6 @@ export default class Content extends React.Component {
       this.lastBlockMap = blockMap;
     }
   }
-
-  setPageThrottle = debounce(this.processData, THRESHOLD, false);
 
   lastCommited = new OrderedMap({});
 
@@ -172,7 +170,7 @@ export default class Content extends React.Component {
             lastEditorState={this.props.editor.lastEditorState}
             pageName={this.props.editor.pageName}
             contentState={this.props.editor.contentState}
-            sendData={this.sendData}
+            firebase={this.props.firebase.database}
             placeholder="Enter some text..."
             ref="editor"
           />

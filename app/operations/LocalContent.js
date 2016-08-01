@@ -1,28 +1,42 @@
 import { replaceLine, removeLine, insertLine } from '../helpers';
-
+import { convertToRaw } from 'draft-js';
 const UPDATE = 'UPDATE';
-const EXPIRE = '2000';
-
+const EXPIRE = 1700;
+const POLL = 5000;
 export default class LocalContent {
 
   constructor(pageName, getEditorState, setContentState, firebase) {
     this.pageName = pageName;
     this.getEditorState = getEditorState;
     this.setContentState = setContentState;
+    this.editorState = undefined;
     this.blockMap = new Map();
     this.networkQueue = new Map();
     this.firebase = firebase;
     this.watchFirebase();
+    this.sendRawContentBlock();
   }
 
+
   // -private
+
+  sendRawContentBlock = () => {
+    this.lastSent;
+    setInterval(() => {
+      if (!this.editorState) return;
+      const raw = convertToRaw(this.editorState.getCurrentContent());
+      //console.log('sending complete state');
+      this.firebase.ref(`data/${this.pageName}/current/contentState`)
+        .set(JSON.stringify(raw));
+    }, POLL);
+  }
   watchFirebase = () => {
-    this.firebase.ref(`data/${this.pageName}/current/blocksCount`).on('child_changed', (snapshot) => {
+    this.firebase.ref(`data/${this.pageName}/current/blocksMap`).on('child_changed', (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
       this.onNetworkBlockChange(data);
     });
-    this.firebase.ref(`data/${this.pageName}/current/blocksCount`).on('child_added', (snapshot) => {
+    this.firebase.ref(`data/${this.pageName}/current/blocksMap`).on('child_added', (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
       this.onNetworkBlockChange(data);
@@ -45,6 +59,12 @@ export default class LocalContent {
 
   // gets a debounce call whenever editorState changes
   syncEditorState = (editorState) => {
+    if (this.editorState) {
+      if (this.editorState.getCurrentContent().hashCode() === editorState.getCurrentContent().hashCode()) {
+        return;
+      }
+    }
+    this.editorState = editorState;
     const currentContent = editorState.getCurrentContent();
     const keySeq = Array.from(currentContent.getBlockMap().keySeq());
     function createBlock(block, count) {
@@ -53,14 +73,26 @@ export default class LocalContent {
         key: block.getKey(),
         text: block.getText(),
         hashCode: block.hashCode(),
-        parent: keySeq.slice(0, keySeq.indexOf(block.getKey()) + 1),
+        ancestors: keySeq.slice(0, keySeq.indexOf(block.getKey()) + 1),
+        deleted: false,
       };
     }
-    const editorArrayBlockMap = currentContent.getArrayBlockMap();
+    const editorArrayBlockMap = currentContent.getBlocksAsArray();
+    this.blockMap.forEach(block => {
+      if (!currentContent.getBlockForKey(block.key)) {
+        block.deleted = true;
+        block.hashCode = 'DELETED';
+        this.updateEntry(block, true, false);
+      }
+    });
     editorArrayBlockMap.forEach(block => {
       const oldBlock = this.blockMap.get(block.getKey());
-      if (!this.blockMap.get(block.getKey())) {
+      //console.log(block.key, oldBlock);
+      //console.log(this.blockMap);
+      if (!oldBlock) {
+        console.log('creating new block', block.key, block.text);
         this.updateEntry(createBlock(block, 0), true, false);
+        return;
       }
       if (block.hashCode() !== oldBlock.hashCode) {
         this.updateEntry(createBlock(block, oldBlock.count), true, false);
@@ -71,7 +103,7 @@ export default class LocalContent {
   addToNetworkQueue = (block) => {
     if (this.networkQueue.get(block.key)
     && this.networkQueue.get(block.key).block.hashCode === block.hashCode) {
-      console.log('already sent', block.key);
+      //console.log('already sent', block.key);
       return false;
     }
     if (this.networkQueue.get(block.key) &&
@@ -90,18 +122,21 @@ export default class LocalContent {
   sendToNetwork = (key) => {
     const fireRef = this.firebase.ref(`data/${this.pageName}/current/blocksMap/${key}`);
     fireRef.transaction((networkBlock) => {
+
       const item = this.networkQueue.get(key).block;
-      if (!item.block.count) {
-        item.count = 0;
-      }
+      if (!item) return;
+      // //console.log(key);
+      // //console.log(this.networkQueue);
+      window.networkQueue = this.networkQueue;
+      console.log(item, key);
       if (!networkBlock) {
         return item;
       }
-      if (item.block.count + 1 > networkBlock.count) {
+      if (item.count + 1 > networkBlock.count) {
         item.count += 1;
         return item;
       }
-      if (item.block.count + 1 <= networkBlock.count) {
+      if (item.count + 1 <= networkBlock.count) {
         return;
       }
     }, (error, committed, snapshot) => {
@@ -110,16 +145,14 @@ export default class LocalContent {
 
         this.onNetworkBlockChange(this.networkQueue.get(key).block);
       } else if (!committed) {
-        console.log('transaction aborted as count existed', snapshot.val());
-
+        //console.log('transaction aborted as count existed snap', snapshot.val(), this.networkQueue.get(key).block);
         this.networkQueue.delete(key);
         this.onNetworkBlockChange(snapshot.val());
       } else {
-        this.networkQueue.delete(key);
-        console.log('timer stared', key);
+        //console.log('timer stared', key);
         this.networkQueue.get(key).timer = setTimeout(() => {
+          //console.log('updated', key, 'succesfully', this.networkQueue.get(key).block.text);
           this.networkQueue.delete(key);
-          console.log('updated', key, 'succesfully');
         }, EXPIRE);
       }
     });
@@ -133,6 +166,7 @@ export default class LocalContent {
     let contentState = this.getEditorState().getCurrentContent();
     if (!this.blockMap.get(block.key)) {
       // creating a new block
+      //console.log(block);
       contentState = insertLine(block, block.ancestors, contentState);
     } else if (block.deleted === true) {
       contentState = removeLine(contentState, block.key);
@@ -151,6 +185,9 @@ export default class LocalContent {
 
     if (!localBlock) {
       this.updateEntry(block, false, true);
+      return;
+    }
+    if (block.deleted && localBlock.deleted) {
       return;
     }
     if (block.count > localBlock.count) {
