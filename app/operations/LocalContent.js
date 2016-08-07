@@ -2,7 +2,7 @@ import { replaceLine, removeLine, insertLine } from '../helpers';
 import { convertToRaw } from 'draft-js';
 const UPDATE = 'UPDATE';
 const EXPIRE = 1700;
-const POLL = 5000;
+const POLL = 3000;
 export default class LocalContent {
 
   constructor(pageName, getEditorState, setContentState, firebase) {
@@ -17,15 +17,13 @@ export default class LocalContent {
     this.sendRawContentBlock();
   }
 
-
   // -private
 
   sendRawContentBlock = () => {
-    this.lastSent;
     setInterval(() => {
       if (!this.editorState) return;
       const raw = convertToRaw(this.editorState.getCurrentContent());
-      //console.log('sending complete state');
+      // console.log('sending complete state');
       this.firebase.ref(`data/${this.pageName}/current/contentState`)
         .set(JSON.stringify(raw));
     }, POLL);
@@ -42,6 +40,7 @@ export default class LocalContent {
       this.onNetworkBlockChange(data);
     });
   }
+
   // updates a block in the this.blockMap and decides
   // whether to call network or editor for change
   updateEntry = (_block, withEditor, withNetwork) => {
@@ -50,10 +49,8 @@ export default class LocalContent {
       this.updateEditorState(block);
       this.blockMap.set(block.key, block);
     }
-    if (!withNetwork) {
-      if (this.addToNetworkQueue(block, UPDATE)) {
-        this.blockMap.set(block.key, block);
-      }
+    if (!withNetwork && this.addToNetworkQueue(block, UPDATE)) {
+      this.blockMap.set(block.key, block);
     }
   }
 
@@ -87,8 +84,8 @@ export default class LocalContent {
     });
     editorArrayBlockMap.forEach(block => {
       const oldBlock = this.blockMap.get(block.getKey());
-      //console.log(block.key, oldBlock);
-      //console.log(this.blockMap);
+      // console.log(block.key, oldBlock);
+      // console.log(this.blockMap);
       if (!oldBlock) {
         console.log('creating new block', block.key, block.text);
         this.updateEntry(createBlock(block, 0), true, false);
@@ -103,7 +100,7 @@ export default class LocalContent {
   addToNetworkQueue = (block) => {
     if (this.networkQueue.get(block.key)
     && this.networkQueue.get(block.key).block.hashCode === block.hashCode) {
-      //console.log('already sent', block.key);
+      // console.log('already sent', block.key);
       return false;
     }
     if (this.networkQueue.get(block.key) &&
@@ -122,13 +119,12 @@ export default class LocalContent {
   sendToNetwork = (key) => {
     const fireRef = this.firebase.ref(`data/${this.pageName}/current/blocksMap/${key}`);
     fireRef.transaction((networkBlock) => {
-
       const item = this.networkQueue.get(key).block;
       if (!item) return;
       // //console.log(key);
       // //console.log(this.networkQueue);
       window.networkQueue = this.networkQueue;
-      console.log(item, key);
+      // console.log(item, key);
       if (!networkBlock) {
         return item;
       }
@@ -145,13 +141,13 @@ export default class LocalContent {
 
         this.onNetworkBlockChange(this.networkQueue.get(key).block);
       } else if (!committed) {
-        //console.log('transaction aborted as count existed snap', snapshot.val(), this.networkQueue.get(key).block);
+        // console.log('transaction aborted as count existed snap', snapshot.val(), this.networkQueue.get(key).block);
         this.networkQueue.delete(key);
         this.onNetworkBlockChange(snapshot.val());
       } else {
-        //console.log('timer stared', key);
+        // console.log('timer stared', key);
         this.networkQueue.get(key).timer = setTimeout(() => {
-          //console.log('updated', key, 'succesfully', this.networkQueue.get(key).block.text);
+          // console.log('updated', key, 'succesfully', this.networkQueue.get(key).block.text);
           this.networkQueue.delete(key);
         }, EXPIRE);
       }
@@ -166,8 +162,9 @@ export default class LocalContent {
     let contentState = this.getEditorState().getCurrentContent();
     if (!this.blockMap.get(block.key)) {
       // creating a new block
-      //console.log(block);
       contentState = insertLine(block, block.ancestors, contentState);
+    } else if (!contentState.getBlockForKey(block.key)) {
+      return;
     } else if (block.deleted === true) {
       contentState = removeLine(contentState, block.key);
     } else {
