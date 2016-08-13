@@ -28,6 +28,7 @@ export default class LocalContent {
         .set(JSON.stringify(raw));
     }, POLL);
   }
+
   watchFirebase = () => {
     this.firebase.ref(`data/${this.pageName}/current/blocksMap`).on('child_changed', (snapshot) => {
       const data = snapshot.val();
@@ -79,6 +80,7 @@ export default class LocalContent {
       if (!currentContent.getBlockForKey(block.key)) {
         block.deleted = true;
         block.hashCode = 'DELETED';
+        debugger;
         this.updateEntry(block, true, false);
       }
     });
@@ -177,9 +179,8 @@ export default class LocalContent {
   // comes from network
   onNetworkBlockChange = (block) => {
     if (!block) return;
-
     const localBlock = this.blockMap.get(block.key);
-
+    console.log(block, localBlock);
     if (!localBlock) {
       this.updateEntry(block, false, true);
       return;
